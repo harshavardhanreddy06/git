@@ -57,7 +57,7 @@ public class ChessBoardManagerBot1 : MonoBehaviour
         UpdateQueenCounts();
         UpdateTurnDisplay();
 
-        resetButton.onClick.AddListener(() => LoadStoredScene()); // Link the restart button
+        resetButton.onClick.AddListener(() => ResetMoves()); // Link the restart button
 
         // Store the current scene at the start
         currentScene = SceneManager.GetActiveScene().name;
@@ -87,47 +87,47 @@ public class ChessBoardManagerBot1 : MonoBehaviour
         }
     }
 
-   void OnCellClick(int x, int y)
-{
-    if (isGameSolved || !isPlayerTurn) return;
-
-    // Check if the player is trying to place a queen in an invalid position
-    if (cells[x, y].transform.childCount > 0 || !IsSafeToPlaceQueen(x, y))
+    void OnCellClick(int x, int y)
     {
-        Debug.Log("Invalid move! Switching to GameOver scene.");
+        if (isGameSolved || !isPlayerTurn) return;
 
-        // Set the losing message
-        GameWinner.SetWinningMessage("You Lost!");
+        // Check if the player is trying to place a queen in an invalid position
+        if (cells[x, y].transform.childCount > 0 || !IsSafeToPlaceQueen(x, y))
+        {
+            Debug.Log("Invalid move! Switching to GameOver scene.");
 
-        Debug.Log(GameWinner.WinningMessage);
+            // Set the losing message
+            GameWinner.SetWinningMessage("You Lost!");
 
-        // Record the current scene before switching
-        RestartButton.RecordCurrentScene();
-        // Load the GameOverScene if the move is invalid
-        SceneManager.LoadScene("GameOverScene");
-        return;
+            Debug.Log(GameWinner.WinningMessage);
+
+            // Record the current scene before switching
+            RestartButton.RecordCurrentScene();
+            // Load the GameOverScene if the move is invalid
+            SceneManager.LoadScene("GameOverScene");
+            return;
+        }
+
+        // Only allow the player to place a queen on their turn
+        PlaceQueen(x, y, true);
+
+        if (CheckIfGameSolved())
+        {
+            isGameSolved = true;
+            Debug.Log("Game Solved!");
+            return;
+        }
+
+        if (isBotMode)
+        {
+            isPlayerTurn = false;
+            UpdateTurnDisplay();
+            StartCoroutine(BotMoveWithDelay());
+        }
+
+        // Check if game over after the move
+        CheckGameOver();
     }
-
-    // Only allow the player to place a queen on their turn
-    PlaceQueen(x, y, true);
-
-    if (CheckIfGameSolved())
-    {
-        isGameSolved = true;
-        Debug.Log("Game Solved!");
-        return;
-    }
-
-    if (isBotMode)
-    {
-        isPlayerTurn = false;
-        UpdateTurnDisplay();
-        StartCoroutine(BotMoveWithDelay());
-    }
-
-    // Check if game over after the move
-    CheckGameOver();
-}
 
     bool IsSafeToPlaceQueen(int row, int col)
     {
@@ -167,8 +167,8 @@ public class ChessBoardManagerBot1 : MonoBehaviour
 
     IEnumerator BotMoveWithDelay()
     {
-        yield return new WaitForSeconds(4f); // Wait for the delay
-        BotMove();
+        yield return new WaitForSeconds(3f); // Wait for the delay
+        BotMove(); // Let the bot make its move
     }
 
     void BotMove()
@@ -230,18 +230,26 @@ public class ChessBoardManagerBot1 : MonoBehaviour
     {
         if (moveHistory.Count > 0)
         {
+            // Pop the most recent move
             var lastMove = moveHistory.Pop();
             RemoveQueen(lastMove.row, lastMove.col, lastMove.isPlayer);
 
-            if (moveHistory.Count > 0)
+            // Check if it was the bot's move
+            if (!lastMove.isPlayer)
             {
-                var secondLastMove = moveHistory.Pop();
-                RemoveQueen(secondLastMove.row, secondLastMove.col, secondLastMove.isPlayer);
+                // If it was the bot's move, we need to set it to the bot's turn and let the bot place a queen
+                isPlayerTurn = false;
+                StartCoroutine(BotMoveWithDelay()); // Wait for the bot's move to take place after 3 seconds delay
+            }
+            else
+            {
+                // If it was the player's move, it's now the player's turn
+                isPlayerTurn = true;
             }
 
             UpdateQueenCounts();
             UpdateTurnDisplay();
-            Debug.Log("Latest moves reset.");
+            Debug.Log("Latest move undone.");
         }
     }
 
